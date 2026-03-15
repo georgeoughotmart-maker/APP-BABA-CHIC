@@ -1,0 +1,42 @@
+{
+  "entities": {
+    "Player": {
+      "title": "Player",
+      "description": "A football player in the group.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the player."
+        },
+        "photo": {
+          "type": "string",
+          "description": "Base64 encoded photo of the player."
+        },
+        "goals": {
+          "type": "integer",
+          "description": "Total goals scored by the player."
+        },
+        "isPlayerOfWeek": {
+          "type": "boolean",
+          "description": "Whether the player is the player of the week."
+        },
+        "payments": {
+          "type": "object",
+          "description": "Monthly payment status.",
+          "properties": {},
+          "additionalProperties": {
+            "type": "boolean"
+          }
+        }
+      },
+      "required": ["name", "goals", "isPlayerOfWeek", "payments"]
+    }
+  },
+  "firestore": {
+    "/players/{playerId}": {
+      "schema": "Player",
+      "description": "Collection of players."
+    }
+  }
+}

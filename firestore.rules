@@ -1,0 +1,48 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: players
+    // Document ID: auto-generated
+    // Fields:
+    //   - name: string (required)
+    //   - photo: string (optional)
+    //   - goals: number (required)
+    //   - isPlayerOfWeek: boolean (required)
+    //   - payments: map (required)
+    //
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (request.auth.token.email == "georgeoughotmart@gmail.com" && request.auth.token.email_verified == true);
+    }
+
+    function isValidPlayer(data) {
+      return data.keys().hasAll(['name', 'goals', 'isPlayerOfWeek', 'payments']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.goals is int && data.goals >= 0 &&
+             data.isPlayerOfWeek is bool &&
+             data.payments is map && data.payments.size() < 100 &&
+             (!('photo' in data) || (data.photo is string && data.photo.size() < 500000));
+    }
+
+    match /players/{playerId} {
+      // Allow everyone to read players so non-admins can see the data
+      allow read: if true;
+      
+      // Only admins can create, update or delete players
+      allow create: if isAdmin() && isValidPlayer(request.resource.data);
+      allow update: if isAdmin() && isValidPlayer(request.resource.data);
+      allow delete: if isAdmin();
+    }
+  }
+}

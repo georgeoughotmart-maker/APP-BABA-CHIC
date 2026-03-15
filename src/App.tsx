@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Component, ErrorInfo, ReactNode } from 'react';
 import { 
   Plus, 
   Trophy, 
@@ -22,19 +22,145 @@ import {
   Lock,
   Unlock,
   Settings,
-  LogOut
+  LogOut,
+  AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Player } from './types';
+import { 
+  collection, 
+  onSnapshot, 
+  doc, 
+  setDoc, 
+  updateDoc, 
+  deleteDoc, 
+  getDocFromServer,
+  query,
+  orderBy
+} from 'firebase/firestore';
+import { 
+  signInWithPopup, 
+  GoogleAuthProvider, 
+  onAuthStateChanged, 
+  signOut,
+  User as FirebaseUser
+} from 'firebase/auth';
+import { db, auth } from './firebase';
 
-const STORAGE_KEY = 'baba_manager_data_v2';
-const ADMIN_KEY = 'baba_admin_pass';
+const ADMIN_EMAIL = "georgeoughotmart@gmail.com";
 
-export default function App() {
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId: string | undefined;
+    email: string | null | undefined;
+    emailVerified: boolean | undefined;
+    isAnonymous: boolean | undefined;
+    tenantId: string | null | undefined;
+    providerInfo: {
+      providerId: string;
+      displayName: string | null;
+      email: string | null;
+      photoUrl: string | null;
+    }[];
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData.map(provider => ({
+        providerId: provider.providerId,
+        displayName: provider.displayName,
+        email: provider.email,
+        photoUrl: provider.photoURL
+      })) || []
+    },
+    operationType,
+    path
+  }
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
+// Error Boundary Component
+class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean, errorMessage: string }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, errorMessage: '' };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, errorMessage: error.message };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("ErrorBoundary caught an error", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      let displayMessage = "Ocorreu um erro inesperado.";
+      try {
+        const parsed = JSON.parse(this.state.errorMessage);
+        if (parsed.error.includes("Missing or insufficient permissions")) {
+          displayMessage = "Você não tem permissão para realizar esta ação. Apenas o administrador pode salvar dados.";
+        }
+      } catch (e) {
+        // Not JSON
+      }
+
+      return (
+        <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-6 text-center">
+          <div className="bg-white/5 border border-white/10 p-8 rounded-[2rem] max-w-md">
+            <AlertCircle className="text-red-500 mx-auto mb-4" size={48} />
+            <h2 className="text-xl font-black uppercase italic mb-4">Ops! Algo deu errado</h2>
+            <p className="text-white/60 text-sm mb-6">{displayMessage}</p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="bg-white text-emerald-900 px-6 py-3 rounded-xl font-black uppercase text-xs"
+            >
+              Recarregar App
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+export default function AppWrapper() {
+  return (
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
+  );
+}
+
+function App() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
-  const [adminPassword, setAdminPassword] = useState('');
   const [isAddingPlayer, setIsAddingPlayer] = useState(false);
   const [newPlayerName, setNewPlayerName] = useState('');
   const [newPlayerPhoto, setNewPlayerPhoto] = useState<string | undefined>(undefined);
@@ -45,103 +171,147 @@ export default function App() {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load data
+  // Test connection
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
+    async function testConnection() {
       try {
-        setPlayers(JSON.parse(saved));
-      } catch (e) {
-        console.error('Failed to load data', e);
+        await getDocFromServer(doc(db, 'test', 'connection'));
+      } catch (error) {
+        if(error instanceof Error && error.message.includes('the client is offline')) {
+          console.error("Please check your Firebase configuration.");
+        }
       }
     }
-    
-    // Check if was admin in session
-    const wasAdmin = sessionStorage.getItem('is_baba_admin') === 'true';
-    if (wasAdmin) setIsAdmin(true);
+    testConnection();
   }, []);
 
-  // Save data
+  // Auth Listener
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(players));
-  }, [players]);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+      if (user && user.email === ADMIN_EMAIL) {
+        setIsAdmin(true);
+      } else {
+        setIsAdmin(false);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
-  const handleAdminLogin = () => {
-    // Default password is 'baba123' if not set, or check against stored
-    const savedPass = localStorage.getItem(ADMIN_KEY) || 'baba123';
-    if (adminPassword === savedPass) {
-      setIsAdmin(true);
-      sessionStorage.setItem('is_baba_admin', 'true');
+  // Firestore Listener
+  useEffect(() => {
+    const q = query(collection(db, 'players'), orderBy('goals', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const playersData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Player[];
+      setPlayers(playersData);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'players');
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleGoogleLogin = async () => {
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
       setShowAdminLogin(false);
-      setAdminPassword('');
-    } else {
-      alert('Senha incorreta!');
+    } catch (error) {
+      console.error("Login failed", error);
+      alert("Falha no login. Tente novamente.");
     }
   };
 
-  const handleLogout = () => {
-    setIsAdmin(false);
-    sessionStorage.removeItem('is_baba_admin');
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error("Logout failed", error);
+    }
   };
 
-  const addPlayer = () => {
+  const addPlayer = async () => {
     if (!isAdmin) return;
     if (!newPlayerName.trim()) return;
     
-    const newPlayer: Player = {
-      id: crypto.randomUUID(),
+    const newPlayerData = {
       name: newPlayerName,
-      photo: newPlayerPhoto,
+      photo: newPlayerPhoto || null,
       goals: 0,
       isPlayerOfWeek: false,
       payments: {}
     };
     
-    setPlayers([...players, newPlayer]);
-    setNewPlayerName('');
-    setNewPlayerPhoto(undefined);
-    setIsAddingPlayer(false);
-  };
-
-  const deletePlayer = (id: string) => {
-    if (!isAdmin) return;
-    if (confirm('Remover este craque do time?')) {
-      setPlayers(players.filter(p => p.id !== id));
+    try {
+      const newDocRef = doc(collection(db, 'players'));
+      await setDoc(newDocRef, newPlayerData);
+      setNewPlayerName('');
+      setNewPlayerPhoto(undefined);
+      setIsAddingPlayer(false);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'players');
     }
   };
 
-  const togglePayment = (playerId: string) => {
+  const deletePlayer = async (id: string) => {
     if (!isAdmin) return;
-    setPlayers(players.map(p => {
-      if (p.id === playerId) {
-        return {
-          ...p,
-          payments: {
-            ...p.payments,
-            [currentMonth]: !p.payments[currentMonth]
-          }
-        };
+    if (confirm('Remover este craque do time?')) {
+      try {
+        await deleteDoc(doc(db, 'players', id));
+      } catch (error) {
+        handleFirestoreError(error, OperationType.DELETE, `players/${id}`);
       }
-      return p;
-    }));
+    }
   };
 
-  const updateGoals = (playerId: string, delta: number) => {
+  const togglePayment = async (playerId: string) => {
     if (!isAdmin) return;
-    setPlayers(players.map(p => {
-      if (p.id === playerId) {
-        return { ...p, goals: Math.max(0, p.goals + delta) };
-      }
-      return p;
-    }));
+    const player = players.find(p => p.id === playerId);
+    if (!player) return;
+
+    try {
+      await updateDoc(doc(db, 'players', playerId), {
+        [`payments.${currentMonth}`]: !player.payments[currentMonth]
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `players/${playerId}`);
+    }
   };
 
-  const setPlayerOfWeek = (playerId: string) => {
+  const updateGoals = async (playerId: string, delta: number) => {
     if (!isAdmin) return;
-    setPlayers(players.map(p => ({
-      ...p,
-      isPlayerOfWeek: p.id === playerId ? !p.isPlayerOfWeek : false
-    })));
+    const player = players.find(p => p.id === playerId);
+    if (!player) return;
+
+    try {
+      await updateDoc(doc(db, 'players', playerId), {
+        goals: Math.max(0, player.goals + delta)
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `players/${playerId}`);
+    }
+  };
+
+  const setPlayerOfWeek = async (playerId: string) => {
+    if (!isAdmin) return;
+    
+    try {
+      // First, unset any current player of the week
+      const currentPOW = players.find(p => p.isPlayerOfWeek);
+      if (currentPOW && currentPOW.id !== playerId) {
+        await updateDoc(doc(db, 'players', currentPOW.id), { isPlayerOfWeek: false });
+      }
+      
+      // Toggle the new one
+      const player = players.find(p => p.id === playerId);
+      if (player) {
+        await updateDoc(doc(db, 'players', playerId), { isPlayerOfWeek: !player.isPlayerOfWeek });
+      }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, 'players');
+    }
   };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -190,7 +360,12 @@ export default function App() {
               </h1>
               <div className="flex items-center gap-2">
                 <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-emerald-400">Arena AI Studio</p>
-                {isAdmin && <span className="bg-amber-400 text-amber-950 text-[8px] font-black px-1.5 rounded uppercase">Modo ADM</span>}
+                {isAdmin && (
+                  <div className="flex flex-col items-end">
+                    <span className="bg-amber-400 text-amber-950 text-[8px] font-black px-1.5 rounded uppercase">Modo ADM</span>
+                    <span className="text-[8px] text-white/40 uppercase truncate max-w-[100px]">{currentUser?.email}</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -527,25 +702,16 @@ export default function App() {
                   <Lock size={32} />
                 </div>
                 <h2 className="text-xl font-black uppercase italic mb-2">Acesso Restrito</h2>
-                <p className="text-xs text-white/40 font-bold uppercase tracking-widest mb-6">Digite a senha do administrador</p>
-                
-                <input 
-                  type="password"
-                  value={adminPassword}
-                  onChange={(e) => setAdminPassword(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAdminLogin()}
-                  placeholder="Senha"
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-center font-bold outline-none focus:ring-2 focus:ring-amber-400 transition-all mb-4"
-                  autoFocus
-                />
+                <p className="text-xs text-white/40 font-bold uppercase tracking-widest mb-6">Apenas o administrador pode salvar dados</p>
                 
                 <button 
-                  onClick={handleAdminLogin}
-                  className="w-full bg-amber-400 text-amber-950 font-black uppercase py-3 rounded-xl shadow-lg hover:scale-105 active:scale-95 transition-all"
+                  onClick={handleGoogleLogin}
+                  className="w-full bg-white text-black font-black uppercase py-3 rounded-xl shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2"
                 >
-                  Entrar
+                  <img src="https://www.google.com/favicon.ico" className="w-4 h-4" /> Entrar com Google
                 </button>
-                <p className="mt-4 text-[10px] text-white/20 font-bold uppercase">Senha padrão: baba123</p>
+                
+                <p className="mt-4 text-[10px] text-white/20 font-bold uppercase">Use o e-mail: {ADMIN_EMAIL}</p>
               </div>
             </motion.div>
           </div>
