@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+@theme {
+  --color-pitch-light: #2d5a27;
+  --color-pitch-dark: #1e3d1a;
+  --font-display: "Space Grotesk", sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-neutral-950 text-white;
+    background-image: 
+      radial-gradient(circle at 2px 2px, rgba(255,255,255,0.05) 1px, transparent 0);
+    background-size: 24px 24px;
+  }
+}
+
+.pitch-gradient {
+  background: linear-gradient(135deg, var(--color-pitch-light) 0%, var(--color-pitch-dark) 100%);
+}
+
+.grass-pattern {
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.03) 0px,
+    rgba(255, 255, 255, 0.03) 40px,
+    transparent 40px,
+    transparent 80px
+  );
+}

@@ -1,11 +1,44 @@
-<div align="center">
+# BABA CHIC ⚽
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+Sistema de gestão para grupos de futebol (Baba), focado em controle de mensalidades, artilharia e craque da semana.
 
-  <h1>Built with AI Studio</h2>
+## 🚀 Como rodar o projeto
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+### Pré-requisitos
+- Node.js (v18 ou superior)
+- npm ou yarn
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+### Instalação
+1. Clone o repositório:
+   ```bash
+   git clone https://github.com/seu-usuario/baba-chic.git
+   ```
+2. Instale as dependências:
+   ```bash
+   npm install
+   ```
+3. Inicie o servidor de desenvolvimento:
+   ```bash
+   npm run dev
+   ```
 
-</div>
+## 🛠️ Tecnologias Utilizadas
+- React 19
+- Vite
+- Tailwind CSS 4
+- Lucide React (Ícones)
+- Motion (Animações)
+
+## 📦 Deploy no Vercel
+
+Este projeto está pronto para ser implantado no Vercel:
+1. Conecte seu repositório GitHub ao Vercel.
+2. O Vercel detectará automaticamente as configurações do Vite.
+3. Clique em "Deploy".
+
+## 🔐 Modo Administrador
+Para realizar alterações (adicionar jogadores, gols, pagamentos), acesse o modo ADM clicando no ícone de cadeado.
+- **Senha padrão:** `baba123`
+
+---
+Desenvolvido com ❤️ para boleiros.

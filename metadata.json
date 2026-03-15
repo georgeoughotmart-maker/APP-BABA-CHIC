@@ -1,0 +1,7 @@
+{
+  "name": "BABA CHIC",
+  "description": "Controle de mensalidades, artilharia e craque da semana para o seu grupo de futebol.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
