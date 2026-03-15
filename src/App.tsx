@@ -518,73 +518,75 @@ function App() {
 
           <div className="space-y-4">
             {players.map(player => (
-              <div key={player.id} className="bg-black/40 rounded-3xl p-4 border border-white/5 flex flex-wrap items-center justify-between gap-6 group hover:border-white/20 transition-all">
-                <div className="flex items-center gap-6">
-                  <div className="relative">
+              <div key={player.id} className="bg-black/40 rounded-3xl p-4 border border-white/5 flex flex-col sm:flex-row items-center sm:justify-between gap-4 sm:gap-6 group hover:border-white/20 transition-all">
+                <div className="flex items-center gap-4 sm:gap-6 w-full sm:w-auto">
+                  <div className="relative flex-shrink-0">
                     <img 
                       src={player.photo || `https://picsum.photos/seed/${player.id}/200`} 
-                      className="w-20 h-20 rounded-[1.5rem] object-cover border-2 border-white/10" 
+                      className="w-16 h-16 sm:w-20 sm:h-20 rounded-[1.2rem] sm:rounded-[1.5rem] object-cover border-2 border-white/10" 
                       referrerPolicy="no-referrer"
                     />
                     {player.isPlayerOfWeek && (
-                      <div className="absolute -top-3 -right-3 bg-amber-400 p-2 rounded-full shadow-lg border-4 border-neutral-900">
-                        <Star size={16} fill="white" className="text-white" />
+                      <div className="absolute -top-2 -right-2 sm:-top-3 sm:-right-3 bg-amber-400 p-1.5 sm:p-2 rounded-full shadow-lg border-2 sm:border-4 border-neutral-900">
+                        <Star size={12} fill="white" className="text-white sm:w-4 sm:h-4" />
                       </div>
                     )}
                   </div>
                   
-                  <div>
-                    <h3 className="text-xl font-black uppercase italic tracking-tighter">{player.name}</h3>
-                    <div className="flex items-center gap-4 mt-2">
-                      <div className="bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full text-[10px] font-black uppercase flex items-center gap-1">
-                        <Goal size={12} /> {player.goals} Gols
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-lg sm:text-xl font-black uppercase italic tracking-tighter truncate">{player.name}</h3>
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-2">
+                      <div className="bg-emerald-500/20 text-emerald-400 px-2 sm:px-3 py-1 rounded-full text-[9px] sm:text-[10px] font-black uppercase flex items-center gap-1">
+                        <Goal size={10} className="sm:w-3 sm:h-3" /> {player.goals} Gols
                       </div>
-                      <div className="bg-amber-500/20 text-amber-400 px-3 py-1 rounded-full text-[10px] font-black uppercase flex items-center gap-1">
-                        <Medal size={12} /> {player.playerOfWeekCount || 0} Títulos
+                      <div className="bg-amber-500/20 text-amber-400 px-2 sm:px-3 py-1 rounded-full text-[9px] sm:text-[10px] font-black uppercase flex items-center gap-1">
+                        <Medal size={10} className="sm:w-3 sm:h-3" /> {player.playerOfWeekCount || 0} Títulos
                       </div>
-                      <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${player.payments[currentMonth] ? 'bg-blue-500/20 text-blue-400' : 'bg-red-500/20 text-red-400'}`}>
+                      <div className={`px-2 sm:px-3 py-1 rounded-full text-[9px] sm:text-[10px] font-black uppercase ${player.payments[currentMonth] ? 'bg-blue-500/20 text-blue-400' : 'bg-red-500/20 text-red-400'}`}>
                         {player.payments[currentMonth] ? 'Em dia' : 'Em débito'}
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 ml-auto">
+                <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end border-t border-white/5 sm:border-none pt-3 sm:pt-0">
                   <div className={`flex items-center bg-white/5 rounded-2xl p-1 border border-white/10 ${!isAdmin && 'opacity-50'}`}>
                     <button 
                       onClick={() => updateGoals(player.id, -1)} 
                       disabled={!isAdmin}
-                      className="w-10 h-10 flex items-center justify-center hover:bg-white/10 rounded-xl transition-colors font-black text-xl disabled:cursor-not-allowed"
+                      className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-white/10 rounded-xl transition-colors font-black text-lg sm:text-xl disabled:cursor-not-allowed"
                     >-</button>
-                    <span className="w-12 text-center font-black text-xl italic">{player.goals}</span>
+                    <span className="w-10 sm:w-12 text-center font-black text-lg sm:text-xl italic">{player.goals}</span>
                     <button 
                       onClick={() => updateGoals(player.id, 1)} 
                       disabled={!isAdmin}
-                      className="w-10 h-10 flex items-center justify-center hover:bg-white/10 rounded-xl transition-colors font-black text-xl disabled:cursor-not-allowed"
+                      className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-white/10 rounded-xl transition-colors font-black text-lg sm:text-xl disabled:cursor-not-allowed"
                     >+</button>
                   </div>
 
-                  <button 
-                    onClick={() => setPlayerOfWeek(player.id)}
-                    disabled={!isAdmin}
-                    className={`p-4 rounded-2xl transition-all ${
-                      player.isPlayerOfWeek 
-                      ? 'bg-amber-400 text-white shadow-lg' 
-                      : 'bg-white/5 text-white/20 hover:text-amber-400 hover:bg-white/10'
-                    } ${!isAdmin && 'opacity-50 cursor-not-allowed'}`}
-                    title="Melhor da Semana"
-                  >
-                    <Medal size={24} strokeWidth={2.5} />
-                  </button>
-
-                  {isAdmin && (
+                  <div className="flex items-center gap-2">
                     <button 
-                      onClick={() => deletePlayer(player.id)}
-                      className="p-4 rounded-2xl bg-white/5 text-white/20 hover:bg-red-500/20 hover:text-red-500 transition-all"
+                      onClick={() => setPlayerOfWeek(player.id)}
+                      disabled={!isAdmin}
+                      className={`p-3 sm:p-4 rounded-2xl transition-all ${
+                        player.isPlayerOfWeek 
+                        ? 'bg-amber-400 text-white shadow-lg' 
+                        : 'bg-white/5 text-white/20 hover:text-amber-400 hover:bg-white/10'
+                      } ${!isAdmin && 'opacity-50 cursor-not-allowed'}`}
+                      title="Melhor da Semana"
                     >
-                      <Trash2 size={24} />
+                      <Medal size={20} sm:size={24} strokeWidth={2.5} />
                     </button>
-                  )}
+
+                    {isAdmin && (
+                      <button 
+                        onClick={() => deletePlayer(player.id)}
+                        className="p-3 sm:p-4 rounded-2xl bg-white/5 text-white/20 hover:bg-red-500/20 hover:text-red-500 transition-all"
+                      >
+                        <Trash2 size={20} sm:size={24} />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
