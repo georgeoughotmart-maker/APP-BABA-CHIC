@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef, Component, ErrorInfo, ReactNode } from 'react';
+import React, { useState, useEffect, useRef, ErrorInfo, ReactNode } from 'react';
 import { 
   Plus, 
   Trophy, 
@@ -100,60 +100,9 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   throw new Error(JSON.stringify(errInfo));
 }
 
-// Error Boundary Component
-class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean, errorMessage: string }> {
-  constructor(props: { children: ReactNode }) {
-    super(props);
-    this.state = { hasError: false, errorMessage: '' };
-  }
-
-  static getDerivedStateFromError(error: Error) {
-    return { hasError: true, errorMessage: error.message };
-  }
-
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error("ErrorBoundary caught an error", error, errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      let displayMessage = "Ocorreu um erro inesperado.";
-      try {
-        const parsed = JSON.parse(this.state.errorMessage);
-        if (parsed.error.includes("Missing or insufficient permissions")) {
-          displayMessage = "Você não tem permissão para realizar esta ação. Apenas o administrador pode salvar dados.";
-        }
-      } catch (e) {
-        // Not JSON
-      }
-
-      return (
-        <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-6 text-center">
-          <div className="bg-white/5 border border-white/10 p-8 rounded-[2rem] max-w-md">
-            <AlertCircle className="text-red-500 mx-auto mb-4" size={48} />
-            <h2 className="text-xl font-black uppercase italic mb-4">Ops! Algo deu errado</h2>
-            <p className="text-white/60 text-sm mb-6">{displayMessage}</p>
-            <button 
-              onClick={() => window.location.reload()}
-              className="bg-white text-emerald-900 px-6 py-3 rounded-xl font-black uppercase text-xs"
-            >
-              Recarregar App
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    return this.props.children;
-  }
-}
 
 export default function AppWrapper() {
-  return (
-    <ErrorBoundary>
-      <App />
-    </ErrorBoundary>
-  );
+  return <App />;
 }
 
 function App() {
@@ -162,6 +111,9 @@ function App() {
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
   const [isAddingPlayer, setIsAddingPlayer] = useState(false);
+  const [isSettingPOW, setIsSettingPOW] = useState(false);
+  const [selectedPOWId, setSelectedPOWId] = useState<string | null>(null);
+  const [powPhoto, setPowPhoto] = useState<string | undefined>(undefined);
   const [newPlayerName, setNewPlayerName] = useState('');
   const [newPlayerPhoto, setNewPlayerPhoto] = useState<string | undefined>(undefined);
   const [currentMonth, setCurrentMonth] = useState(() => {
@@ -170,6 +122,7 @@ function App() {
   });
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const powFileInputRef = useRef<HTMLInputElement>(null);
 
   // Test connection
   useEffect(() => {
@@ -231,6 +184,7 @@ function App() {
       photo: newPlayerPhoto || null,
       goals: 0,
       isPlayerOfWeek: false,
+      playerOfWeekCount: 0,
       payments: {}
     };
     
@@ -287,29 +241,60 @@ function App() {
   const setPlayerOfWeek = async (playerId: string) => {
     if (!isAdmin) return;
     
+    const player = players.find(p => p.id === playerId);
+    if (!player) return;
+
+    // If already POW, just unset
+    if (player.isPlayerOfWeek) {
+      try {
+        await updateDoc(doc(db, 'players', playerId), { isPlayerOfWeek: false });
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, `players/${playerId}`);
+      }
+      return;
+    }
+
+    // If not POW, open modal to set
+    setSelectedPOWId(playerId);
+    setPowPhoto(undefined);
+    setIsSettingPOW(true);
+  };
+
+  const confirmPlayerOfWeek = async () => {
+    if (!isAdmin || !selectedPOWId) return;
+    
     try {
-      // First, unset any current player of the week
+      // 1. Unset current POW
       const currentPOW = players.find(p => p.isPlayerOfWeek);
-      if (currentPOW && currentPOW.id !== playerId) {
+      if (currentPOW) {
         await updateDoc(doc(db, 'players', currentPOW.id), { isPlayerOfWeek: false });
       }
       
-      // Toggle the new one
-      const player = players.find(p => p.id === playerId);
+      // 2. Set new POW and increment count
+      const player = players.find(p => p.id === selectedPOWId);
       if (player) {
-        await updateDoc(doc(db, 'players', playerId), { isPlayerOfWeek: !player.isPlayerOfWeek });
+        await updateDoc(doc(db, 'players', selectedPOWId), { 
+          isPlayerOfWeek: true,
+          playerOfWeekCount: (player.playerOfWeekCount || 0) + 1,
+          playerOfWeekPhoto: powPhoto || null
+        });
       }
+      
+      setIsSettingPOW(false);
+      setSelectedPOWId(null);
+      setPowPhoto(undefined);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, 'players');
     }
   };
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'player' | 'pow') => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setNewPlayerPhoto(reader.result as string);
+        if (type === 'player') setNewPlayerPhoto(reader.result as string);
+        else setPowPhoto(reader.result as string);
       };
       reader.readAsDataURL(file);
     }
@@ -491,7 +476,7 @@ function App() {
                       </div>
 
                       <img 
-                        src={craqueDaSemana.photo || `https://picsum.photos/seed/${craqueDaSemana.id}/400`} 
+                        src={craqueDaSemana.playerOfWeekPhoto || craqueDaSemana.photo || `https://picsum.photos/seed/${craqueDaSemana.id}/400`} 
                         className="w-40 h-40 object-cover rounded-full border-4 border-white/20 shadow-2xl mb-4" 
                         referrerPolicy="no-referrer"
                       />
@@ -508,8 +493,8 @@ function App() {
                         </div>
                         <div className="w-px h-6 bg-white/20" />
                         <div>
-                          <p className="text-[8px] font-bold uppercase text-white/60">Status</p>
-                          <p className="text-sm font-black">MITO</p>
+                          <p className="text-[8px] font-bold uppercase text-white/60">Títulos</p>
+                          <p className="text-sm font-black">{craqueDaSemana.playerOfWeekCount || 0}</p>
                         </div>
                       </div>
                     </div>
@@ -611,6 +596,9 @@ function App() {
                     <div className="flex items-center gap-4 mt-2">
                       <div className="bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full text-[10px] font-black uppercase flex items-center gap-1">
                         <Goal size={12} /> {player.goals} Gols
+                      </div>
+                      <div className="bg-amber-500/20 text-amber-400 px-3 py-1 rounded-full text-[10px] font-black uppercase flex items-center gap-1">
+                        <Medal size={12} /> {player.playerOfWeekCount || 0} Títulos
                       </div>
                       <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${player.payments[currentMonth] ? 'bg-blue-500/20 text-blue-400' : 'bg-red-500/20 text-red-400'}`}>
                         {player.payments[currentMonth] ? 'Em dia' : 'Em débito'}
@@ -756,7 +744,7 @@ function App() {
                   <input 
                     type="file" 
                     ref={fileInputRef} 
-                    onChange={handlePhotoUpload} 
+                    onChange={(e) => handlePhotoUpload(e, 'player')} 
                     accept="image/*" 
                     className="hidden" 
                   />
@@ -787,6 +775,75 @@ function App() {
                     className="flex-1 bg-white text-emerald-900 hover:scale-105 active:scale-95 disabled:opacity-50 px-6 py-4 rounded-2xl font-black uppercase text-xs transition-all shadow-[0_6px_0_rgb(200,200,200)]"
                   >
                     Confirmar
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL CRAQUE DA SEMANA */}
+      <AnimatePresence>
+        {isSettingPOW && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsSettingPOW(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, y: 20, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.9, y: 20, opacity: 0 }}
+              className="bg-neutral-900 border border-white/10 rounded-[3rem] p-10 w-full max-w-md relative z-10 shadow-[0_30px_100px_rgba(0,0,0,0.5)]"
+            >
+              <h2 className="text-3xl font-black uppercase italic tracking-tighter mb-2 text-center">Craque da Semana</h2>
+              <p className="text-xs text-white/40 font-bold uppercase tracking-widest mb-8 text-center">
+                {players.find(p => p.id === selectedPOWId)?.name}
+              </p>
+              
+              <div className="space-y-8">
+                <div className="flex flex-col items-center gap-4">
+                  <div 
+                    onClick={() => powFileInputRef.current?.click()}
+                    className="w-48 h-60 rounded-[2rem] bg-amber-400/10 border-2 border-dashed border-amber-400/20 flex flex-col items-center justify-center text-amber-400/30 cursor-pointer hover:bg-amber-400/20 hover:border-amber-400 transition-all overflow-hidden relative group"
+                  >
+                    {powPhoto ? (
+                      <img src={powPhoto} alt="Preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    ) : (
+                      <>
+                        <Camera size={48} />
+                        <span className="text-[10px] mt-4 font-black uppercase tracking-widest text-center px-4">Foto Especial do Card (Opcional)</span>
+                      </>
+                    )}
+                    <div className="absolute inset-0 bg-amber-400/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                      <Plus size={48} className="text-white" />
+                    </div>
+                  </div>
+                  <input 
+                    type="file" 
+                    ref={powFileInputRef} 
+                    onChange={(e) => handlePhotoUpload(e, 'pow')} 
+                    accept="image/*" 
+                    className="hidden" 
+                  />
+                </div>
+
+                <div className="flex gap-4 pt-4">
+                  <button 
+                    onClick={() => setIsSettingPOW(false)}
+                    className="flex-1 px-6 py-4 rounded-2xl font-black uppercase text-xs text-white/40 hover:bg-white/5 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    onClick={confirmPlayerOfWeek}
+                    className="flex-1 bg-amber-400 text-amber-950 hover:scale-105 active:scale-95 px-6 py-4 rounded-2xl font-black uppercase text-xs transition-all shadow-[0_6px_0_rgb(180,140,0)]"
+                  >
+                    Confirmar Título
                   </button>
                 </div>
               </div>

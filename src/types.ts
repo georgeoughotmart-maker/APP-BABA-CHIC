@@ -4,6 +4,8 @@ export interface Player {
   photo?: string;
   goals: number;
   isPlayerOfWeek: boolean;
+  playerOfWeekCount: number;
+  playerOfWeekPhoto?: string;
   payments: { [month: string]: boolean }; // e.g., "2024-03": true
 }
 

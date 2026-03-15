@@ -21,6 +21,14 @@
           "type": "boolean",
           "description": "Whether the player is the player of the week."
         },
+        "playerOfWeekCount": {
+          "type": "integer",
+          "description": "Total times the player was player of the week."
+        },
+        "playerOfWeekPhoto": {
+          "type": "string",
+          "description": "Special photo for the player of the week card."
+        },
         "payments": {
           "type": "object",
           "description": "Monthly payment status.",
