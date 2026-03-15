@@ -510,64 +510,6 @@ function App() {
           </section>
         </div>
 
-        {/* CONTROLE DE MENSALIDADE */}
-        <section className="bg-white/5 rounded-[2.5rem] p-8 border border-white/10">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-6 mb-10">
-            <h2 className="text-2xl font-black uppercase italic flex items-center gap-3">
-              <DollarSign className="text-emerald-400" size={32} /> Mensalidades
-            </h2>
-            
-            <div className="flex items-center gap-4 bg-black/40 p-2 rounded-2xl border border-white/5">
-              <button onClick={() => changeMonth(-1)} className="p-2 hover:bg-white/10 rounded-xl transition-colors"><ChevronLeft size={20} /></button>
-              <div className="text-center min-w-[140px]">
-                <p className="text-[10px] font-bold uppercase text-emerald-400 tracking-widest">Mês de Referência</p>
-                <span className="text-sm font-black uppercase italic">{formatMonth(currentMonth)}</span>
-              </div>
-              <button onClick={() => changeMonth(1)} className="p-2 hover:bg-white/10 rounded-xl transition-colors"><ChevronRight size={20} /></button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {players.map(player => (
-              <motion.div 
-                key={player.id}
-                layout
-                className={`flex items-center justify-between p-4 rounded-3xl border transition-all ${
-                  player.payments[currentMonth] 
-                  ? 'bg-emerald-500/10 border-emerald-500/30' 
-                  : 'bg-white/5 border-white/10'
-                }`}
-              >
-                <div className="flex items-center gap-4">
-                  <img 
-                    src={player.photo || `https://picsum.photos/seed/${player.id}/100`} 
-                    className="w-12 h-12 rounded-2xl object-cover border border-white/10" 
-                    referrerPolicy="no-referrer"
-                  />
-                  <div>
-                    <h4 className="font-black uppercase text-xs italic">{player.name}</h4>
-                    <p className={`text-[10px] font-bold uppercase ${player.payments[currentMonth] ? 'text-emerald-400' : 'text-red-400'}`}>
-                      {player.payments[currentMonth] ? 'Pagamento Confirmado' : 'Aguardando'}
-                    </p>
-                  </div>
-                </div>
-                
-                <button 
-                  onClick={() => togglePayment(player.id)}
-                  disabled={!isAdmin}
-                  className={`p-3 rounded-2xl transition-all ${
-                    player.payments[currentMonth] 
-                    ? 'bg-emerald-500 text-white shadow-[0_0_20px_rgba(16,185,129,0.4)]' 
-                    : 'bg-white/10 text-white/30 hover:bg-white/20'
-                  } ${!isAdmin && 'opacity-50 cursor-not-allowed'}`}
-                >
-                  {player.payments[currentMonth] ? <CheckCircle2 size={24} /> : <XCircle size={24} />}
-                </button>
-              </motion.div>
-            ))}
-          </div>
-        </section>
-
         {/* LISTA GERAL DE ATLETAS */}
         <section className="bg-white/5 rounded-[2.5rem] p-8 border border-white/10">
           <h2 className="text-2xl font-black uppercase italic flex items-center gap-3 mb-10">
@@ -653,6 +595,64 @@ function App() {
                 <p className="text-white/30 font-bold uppercase tracking-widest text-sm">Nenhum atleta no elenco</p>
               </div>
             )}
+          </div>
+        </section>
+
+        {/* CONTROLE DE MENSALIDADE */}
+        <section className="bg-white/5 rounded-[2.5rem] p-8 border border-white/10">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-6 mb-10">
+            <h2 className="text-2xl font-black uppercase italic flex items-center gap-3">
+              <DollarSign className="text-emerald-400" size={32} /> Mensalidades
+            </h2>
+            
+            <div className="flex items-center gap-4 bg-black/40 p-2 rounded-2xl border border-white/5">
+              <button onClick={() => changeMonth(-1)} className="p-2 hover:bg-white/10 rounded-xl transition-colors"><ChevronLeft size={20} /></button>
+              <div className="text-center min-w-[140px]">
+                <p className="text-[10px] font-bold uppercase text-emerald-400 tracking-widest">Mês de Referência</p>
+                <span className="text-sm font-black uppercase italic">{formatMonth(currentMonth)}</span>
+              </div>
+              <button onClick={() => changeMonth(1)} className="p-2 hover:bg-white/10 rounded-xl transition-colors"><ChevronRight size={20} /></button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {players.map(player => (
+              <motion.div 
+                key={player.id}
+                layout
+                className={`flex items-center justify-between p-4 rounded-3xl border transition-all ${
+                  player.payments[currentMonth] 
+                  ? 'bg-emerald-500/10 border-emerald-500/30' 
+                  : 'bg-white/5 border-white/10'
+                }`}
+              >
+                <div className="flex items-center gap-4">
+                  <img 
+                    src={player.photo || `https://picsum.photos/seed/${player.id}/100`} 
+                    className="w-12 h-12 rounded-2xl object-cover border border-white/10" 
+                    referrerPolicy="no-referrer"
+                  />
+                  <div>
+                    <h4 className="font-black uppercase text-xs italic">{player.name}</h4>
+                    <p className={`text-[10px] font-bold uppercase ${player.payments[currentMonth] ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {player.payments[currentMonth] ? 'Pagamento Confirmado' : 'Aguardando'}
+                    </p>
+                  </div>
+                </div>
+                
+                <button 
+                  onClick={() => togglePayment(player.id)}
+                  disabled={!isAdmin}
+                  className={`p-3 rounded-2xl transition-all ${
+                    player.payments[currentMonth] 
+                    ? 'bg-emerald-500 text-white shadow-[0_0_20px_rgba(16,185,129,0.4)]' 
+                    : 'bg-white/10 text-white/30 hover:bg-white/20'
+                  } ${!isAdmin && 'opacity-50 cursor-not-allowed'}`}
+                >
+                  {player.payments[currentMonth] ? <CheckCircle2 size={24} /> : <XCircle size={24} />}
+                </button>
+              </motion.div>
+            ))}
           </div>
         </section>
       </main>
