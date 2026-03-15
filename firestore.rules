@@ -36,13 +36,9 @@ service cloud.firestore {
     }
 
     match /players/{playerId} {
-      // Allow everyone to read players so non-admins can see the data
-      allow read: if true;
-      
-      // Only admins can create, update or delete players
-      allow create: if isAdmin() && isValidPlayer(request.resource.data);
-      allow update: if isAdmin() && isValidPlayer(request.resource.data);
-      allow delete: if isAdmin();
+      // WARNING: Public access enabled to support simple password-based admin flow.
+      // In a production app, use Firebase Auth to restrict access.
+      allow read, write: if true;
     }
   }
 }

@@ -159,8 +159,8 @@ export default function AppWrapper() {
 function App() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [adminPassword, setAdminPassword] = useState('');
   const [isAddingPlayer, setIsAddingPlayer] = useState(false);
   const [newPlayerName, setNewPlayerName] = useState('');
   const [newPlayerPhoto, setNewPlayerPhoto] = useState<string | undefined>(undefined);
@@ -185,17 +185,10 @@ function App() {
     testConnection();
   }, []);
 
-  // Auth Listener
+  // Check session for admin
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setCurrentUser(user);
-      if (user && user.email === ADMIN_EMAIL) {
-        setIsAdmin(true);
-      } else {
-        setIsAdmin(false);
-      }
-    });
-    return () => unsubscribe();
+    const wasAdmin = sessionStorage.getItem('is_baba_admin') === 'true';
+    if (wasAdmin) setIsAdmin(true);
   }, []);
 
   // Firestore Listener
@@ -213,23 +206,20 @@ function App() {
     return () => unsubscribe();
   }, []);
 
-  const handleGoogleLogin = async () => {
-    const provider = new GoogleAuthProvider();
-    try {
-      await signInWithPopup(auth, provider);
+  const handleAdminLogin = () => {
+    if (adminPassword === 'baba123') {
+      setIsAdmin(true);
+      sessionStorage.setItem('is_baba_admin', 'true');
       setShowAdminLogin(false);
-    } catch (error) {
-      console.error("Login failed", error);
-      alert("Falha no login. Tente novamente.");
+      setAdminPassword('');
+    } else {
+      alert('Senha incorreta!');
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-    } catch (error) {
-      console.error("Logout failed", error);
-    }
+  const handleLogout = () => {
+    setIsAdmin(false);
+    sessionStorage.removeItem('is_baba_admin');
   };
 
   const addPlayer = async () => {
@@ -363,7 +353,6 @@ function App() {
                 {isAdmin && (
                   <div className="flex flex-col items-end">
                     <span className="bg-amber-400 text-amber-950 text-[8px] font-black px-1.5 rounded uppercase">Modo ADM</span>
-                    <span className="text-[8px] text-white/40 uppercase truncate max-w-[100px]">{currentUser?.email}</span>
                   </div>
                 )}
               </div>
@@ -702,16 +691,25 @@ function App() {
                   <Lock size={32} />
                 </div>
                 <h2 className="text-xl font-black uppercase italic mb-2">Acesso Restrito</h2>
-                <p className="text-xs text-white/40 font-bold uppercase tracking-widest mb-6">Apenas o administrador pode salvar dados</p>
+                <p className="text-xs text-white/40 font-bold uppercase tracking-widest mb-6">Digite a senha do administrador</p>
+                
+                <input 
+                  type="password"
+                  value={adminPassword}
+                  onChange={(e) => setAdminPassword(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAdminLogin()}
+                  placeholder="Senha"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-center font-bold outline-none focus:ring-2 focus:ring-amber-400 transition-all mb-4"
+                  autoFocus
+                />
                 
                 <button 
-                  onClick={handleGoogleLogin}
-                  className="w-full bg-white text-black font-black uppercase py-3 rounded-xl shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2"
+                  onClick={handleAdminLogin}
+                  className="w-full bg-amber-400 text-amber-950 font-black uppercase py-3 rounded-xl shadow-lg hover:scale-105 active:scale-95 transition-all"
                 >
-                  <img src="https://www.google.com/favicon.ico" className="w-4 h-4" /> Entrar com Google
+                  Entrar
                 </button>
-                
-                <p className="mt-4 text-[10px] text-white/20 font-bold uppercase">Use o e-mail: {ADMIN_EMAIL}</p>
+                <p className="mt-4 text-[10px] text-white/20 font-bold uppercase">Senha: baba123</p>
               </div>
             </motion.div>
           </div>
