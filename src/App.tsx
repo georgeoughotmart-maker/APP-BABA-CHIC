@@ -215,9 +215,20 @@ function App() {
     const player = players.find(p => p.id === playerId);
     if (!player) return;
 
+    const currentStatus = player.payments[currentMonth];
+    let nextStatus: boolean | 'exempt';
+
+    if (currentStatus === true) {
+      nextStatus = 'exempt';
+    } else if (currentStatus === 'exempt') {
+      nextStatus = false;
+    } else {
+      nextStatus = true;
+    }
+
     try {
       await updateDoc(doc(db, 'players', playerId), {
-        [`payments.${currentMonth}`]: !player.payments[currentMonth]
+        [`payments.${currentMonth}`]: nextStatus
       });
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `players/${playerId}`);
@@ -306,7 +317,13 @@ function App() {
     setCurrentMonth(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`);
   };
 
-  const sortedScorers = [...players].sort((a, b) => b.goals - a.goals);
+  const sortedScorers = [...players].sort((a, b) => {
+    if (b.goals !== a.goals) return b.goals - a.goals;
+    if ((b.playerOfWeekCount || 0) !== (a.playerOfWeekCount || 0)) {
+      return (b.playerOfWeekCount || 0) - (a.playerOfWeekCount || 0);
+    }
+    return a.name.localeCompare(b.name);
+  });
   const top3 = sortedScorers.slice(0, 3);
   const craqueDaSemana = players.find(p => p.isPlayerOfWeek);
 
@@ -542,8 +559,14 @@ function App() {
                       <div className="bg-amber-500/20 text-amber-400 px-2 sm:px-3 py-1 rounded-full text-[9px] sm:text-[10px] font-black uppercase flex items-center gap-1">
                         <Medal size={10} className="sm:w-3 sm:h-3" /> {player.playerOfWeekCount || 0} Títulos
                       </div>
-                      <div className={`px-2 sm:px-3 py-1 rounded-full text-[9px] sm:text-[10px] font-black uppercase ${player.payments[currentMonth] ? 'bg-blue-500/20 text-blue-400' : 'bg-red-500/20 text-red-400'}`}>
-                        {player.payments[currentMonth] ? 'Em dia' : 'Em débito'}
+                      <div className={`px-2 sm:px-3 py-1 rounded-full text-[9px] sm:text-[10px] font-black uppercase ${
+                        player.payments[currentMonth] === true 
+                        ? 'bg-blue-500/20 text-blue-400' 
+                        : player.payments[currentMonth] === 'exempt'
+                        ? 'bg-purple-500/20 text-purple-400'
+                        : 'bg-red-500/20 text-red-400'
+                      }`}>
+                        {player.payments[currentMonth] === true ? 'Em dia' : player.payments[currentMonth] === 'exempt' ? 'Isento' : 'Em débito'}
                       </div>
                     </div>
                   </div>
@@ -623,8 +646,10 @@ function App() {
                 key={player.id}
                 layout
                 className={`flex items-center justify-between p-4 rounded-3xl border transition-all ${
-                  player.payments[currentMonth] 
+                  player.payments[currentMonth] === true 
                   ? 'bg-emerald-500/10 border-emerald-500/30' 
+                  : player.payments[currentMonth] === 'exempt'
+                  ? 'bg-purple-500/10 border-purple-500/30'
                   : 'bg-white/5 border-white/10'
                 }`}
               >
@@ -636,8 +661,14 @@ function App() {
                   />
                   <div>
                     <h4 className="font-black uppercase text-xs italic">{player.name}</h4>
-                    <p className={`text-[10px] font-bold uppercase ${player.payments[currentMonth] ? 'text-emerald-400' : 'text-red-400'}`}>
-                      {player.payments[currentMonth] ? 'Pagamento Confirmado' : 'Aguardando'}
+                    <p className={`text-[10px] font-bold uppercase ${
+                      player.payments[currentMonth] === true 
+                      ? 'text-emerald-400' 
+                      : player.payments[currentMonth] === 'exempt'
+                      ? 'text-purple-400'
+                      : 'text-red-400'
+                    }`}>
+                      {player.payments[currentMonth] === true ? 'Pagamento Confirmado' : player.payments[currentMonth] === 'exempt' ? 'Isento (Machucado)' : 'Aguardando'}
                     </p>
                   </div>
                 </div>
@@ -646,12 +677,20 @@ function App() {
                   onClick={() => togglePayment(player.id)}
                   disabled={!isAdmin}
                   className={`p-3 rounded-2xl transition-all ${
-                    player.payments[currentMonth] 
+                    player.payments[currentMonth] === true 
                     ? 'bg-emerald-500 text-white shadow-[0_0_20px_rgba(16,185,129,0.4)]' 
+                    : player.payments[currentMonth] === 'exempt'
+                    ? 'bg-purple-500 text-white shadow-[0_0_20px_rgba(168,85,247,0.4)]'
                     : 'bg-white/10 text-white/30 hover:bg-white/20'
                   } ${!isAdmin && 'opacity-50 cursor-not-allowed'}`}
                 >
-                  {player.payments[currentMonth] ? <CheckCircle2 size={24} /> : <XCircle size={24} />}
+                  {player.payments[currentMonth] === true ? (
+                    <CheckCircle2 size={24} />
+                  ) : player.payments[currentMonth] === 'exempt' ? (
+                    <AlertCircle size={24} />
+                  ) : (
+                    <XCircle size={24} />
+                  )}
                 </button>
               </motion.div>
             ))}

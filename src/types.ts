@@ -6,7 +6,7 @@ export interface Player {
   isPlayerOfWeek: boolean;
   playerOfWeekCount: number;
   playerOfWeekPhoto?: string;
-  payments: { [month: string]: boolean }; // e.g., "2024-03": true
+  payments: { [month: string]: boolean | 'exempt' }; // true: paid, false: unpaid, 'exempt': exempt
 }
 
 export type Month = string; // YYYY-MM
