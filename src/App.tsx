@@ -249,6 +249,20 @@ function App() {
     }
   };
 
+  const updatePOWCount = async (playerId: string, delta: number) => {
+    if (!isAdmin) return;
+    const player = players.find(p => p.id === playerId);
+    if (!player) return;
+
+    try {
+      await updateDoc(doc(db, 'players', playerId), {
+        playerOfWeekCount: Math.max(0, (player.playerOfWeekCount || 0) + delta)
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `players/${playerId}`);
+    }
+  };
+
   const setPlayerOfWeek = async (playerId: string) => {
     if (!isAdmin) return;
     
@@ -416,7 +430,7 @@ function App() {
                   <div className="mb-4 relative">
                     <img 
                       src={top3[1].photo || `https://picsum.photos/seed/${top3[1].id}/200`} 
-                      className="w-16 h-16 rounded-full border-4 border-slate-400 object-cover shadow-xl group-hover:scale-110 transition-transform" 
+                      className="w-16 h-16 rounded-full border-4 border-slate-400 object-cover object-top shadow-xl group-hover:scale-110 transition-transform" 
                       referrerPolicy="no-referrer"
                     />
                     <div className="absolute -bottom-2 -right-2 bg-slate-400 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">2º</div>
@@ -435,7 +449,7 @@ function App() {
                     <Crown className="absolute -top-8 left-1/2 -translate-x-1/2 text-amber-400 animate-bounce" size={32} fill="currentColor" />
                     <img 
                       src={top3[0].photo || `https://picsum.photos/seed/${top3[0].id}/200`} 
-                      className="w-24 h-24 rounded-full border-4 border-amber-400 object-cover shadow-[0_0_30px_rgba(251,191,36,0.3)] group-hover:scale-110 transition-transform" 
+                      className="w-24 h-24 rounded-full border-4 border-amber-400 object-cover object-top shadow-[0_0_30px_rgba(251,191,36,0.3)] group-hover:scale-110 transition-transform" 
                       referrerPolicy="no-referrer"
                     />
                     <div className="absolute -bottom-2 -right-2 bg-amber-400 text-white text-xs font-bold px-3 py-1 rounded-full">1º</div>
@@ -453,7 +467,7 @@ function App() {
                   <div className="mb-4 relative">
                     <img 
                       src={top3[2].photo || `https://picsum.photos/seed/${top3[2].id}/200`} 
-                      className="w-16 h-16 rounded-full border-4 border-orange-600 object-cover shadow-xl group-hover:scale-110 transition-transform" 
+                      className="w-16 h-16 rounded-full border-4 border-orange-600 object-cover object-top shadow-xl group-hover:scale-110 transition-transform" 
                       referrerPolicy="no-referrer"
                     />
                     <div className="absolute -bottom-2 -right-2 bg-orange-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">3º</div>
@@ -494,7 +508,7 @@ function App() {
 
                       <img 
                         src={craqueDaSemana.playerOfWeekPhoto || craqueDaSemana.photo || `https://picsum.photos/seed/${craqueDaSemana.id}/400`} 
-                        className="w-40 h-40 object-cover rounded-full border-4 border-white/20 shadow-2xl mb-4" 
+                        className="w-40 h-40 object-contain bg-black/40 rounded-full border-4 border-white/20 shadow-2xl mb-4" 
                         referrerPolicy="no-referrer"
                       />
                       
@@ -540,7 +554,7 @@ function App() {
                   <div className="relative flex-shrink-0">
                     <img 
                       src={player.photo || `https://picsum.photos/seed/${player.id}/200`} 
-                      className="w-16 h-16 sm:w-20 sm:h-20 rounded-[1.2rem] sm:rounded-[1.5rem] object-cover border-2 border-white/10" 
+                      className="w-16 h-16 sm:w-20 sm:h-20 rounded-[1.2rem] sm:rounded-[1.5rem] object-cover object-top border-2 border-white/10" 
                       referrerPolicy="no-referrer"
                     />
                     {player.isPlayerOfWeek && (
@@ -572,19 +586,45 @@ function App() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end border-t border-white/5 sm:border-none pt-3 sm:pt-0">
-                  <div className={`flex items-center bg-white/5 rounded-2xl p-1 border border-white/10 ${!isAdmin && 'opacity-50'}`}>
-                    <button 
-                      onClick={() => updateGoals(player.id, -1)} 
-                      disabled={!isAdmin}
-                      className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-white/10 rounded-xl transition-colors font-black text-lg sm:text-xl disabled:cursor-not-allowed"
-                    >-</button>
-                    <span className="w-10 sm:w-12 text-center font-black text-lg sm:text-xl italic">{player.goals}</span>
-                    <button 
-                      onClick={() => updateGoals(player.id, 1)} 
-                      disabled={!isAdmin}
-                      className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-white/10 rounded-xl transition-colors font-black text-lg sm:text-xl disabled:cursor-not-allowed"
-                    >+</button>
+                <div className="flex flex-col sm:flex-row items-center gap-3 ml-auto">
+                  <div className="flex flex-col gap-2">
+                    <div className={`flex items-center bg-white/5 rounded-2xl p-1 border border-white/10 ${!isAdmin && 'opacity-50'}`}>
+                      <div className="flex flex-col items-center px-2">
+                        <span className="text-[8px] font-bold uppercase text-white/40 leading-none mb-1">Gols</span>
+                        <div className="flex items-center">
+                          <button 
+                            onClick={() => updateGoals(player.id, -1)} 
+                            disabled={!isAdmin}
+                            className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-white/10 rounded-xl transition-colors font-black text-lg sm:text-xl disabled:cursor-not-allowed"
+                          >-</button>
+                          <span className="w-10 sm:w-12 text-center font-black text-lg sm:text-xl italic">{player.goals}</span>
+                          <button 
+                            onClick={() => updateGoals(player.id, 1)} 
+                            disabled={!isAdmin}
+                            className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-white/10 rounded-xl transition-colors font-black text-lg sm:text-xl disabled:cursor-not-allowed"
+                          >+</button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {isAdmin && (
+                      <div className="flex items-center bg-white/5 rounded-2xl p-1 border border-white/10">
+                        <div className="flex flex-col items-center px-2">
+                          <span className="text-[8px] font-bold uppercase text-white/40 leading-none mb-1">Títulos</span>
+                          <div className="flex items-center">
+                            <button 
+                              onClick={() => updatePOWCount(player.id, -1)} 
+                              className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-white/10 rounded-xl transition-colors font-black text-lg sm:text-xl"
+                            >-</button>
+                            <span className="w-10 sm:w-12 text-center font-black text-lg sm:text-xl italic">{player.playerOfWeekCount || 0}</span>
+                            <button 
+                              onClick={() => updatePOWCount(player.id, 1)} 
+                              className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-white/10 rounded-xl transition-colors font-black text-lg sm:text-xl"
+                            >+</button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -771,7 +811,7 @@ function App() {
                     className="w-32 h-32 rounded-[2rem] bg-white/5 border-2 border-dashed border-white/20 flex flex-col items-center justify-center text-white/30 cursor-pointer hover:bg-white/10 hover:border-emerald-500 transition-all overflow-hidden relative group"
                   >
                     {newPlayerPhoto ? (
-                      <img src={newPlayerPhoto} alt="Preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      <img src={newPlayerPhoto} alt="Preview" className="w-full h-full object-contain bg-black/40" referrerPolicy="no-referrer" />
                     ) : (
                       <>
                         <Camera size={32} />
@@ -853,7 +893,7 @@ function App() {
                     className="w-48 h-60 rounded-[2rem] bg-amber-400/10 border-2 border-dashed border-amber-400/20 flex flex-col items-center justify-center text-amber-400/30 cursor-pointer hover:bg-amber-400/20 hover:border-amber-400 transition-all overflow-hidden relative group"
                   >
                     {powPhoto ? (
-                      <img src={powPhoto} alt="Preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      <img src={powPhoto} alt="Preview" className="w-full h-full object-contain bg-black/40" referrerPolicy="no-referrer" />
                     ) : (
                       <>
                         <Camera size={48} />
